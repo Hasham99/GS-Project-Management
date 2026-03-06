@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://project-management.garibsons.app/api',
+  // Using a relative path so it automatically uses your domain!
+  baseURL: '/api', 
   withCredentials: true, // Important for cookies (JWT)
   headers: {
     'Content-Type': 'application/json',
