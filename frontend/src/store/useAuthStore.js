@@ -6,6 +6,11 @@ const useAuthStore = create((set) => ({
   isLoading: false,
   error: null,
 
+  setCredentials: (data) => {
+    localStorage.setItem('userInfo', JSON.stringify(data));
+    set({ user: data });
+  },
+
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
