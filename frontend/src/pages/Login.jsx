@@ -86,7 +86,7 @@ const Login = () => {
 
         <p className="mt-8 text-center text-sm text-surface-600">
           Don't have an account?{' '}
-          <Link to="#" className="font-semibold text-primary-600 hover:text-primary-500">
+          <Link to="/admin-register" className="font-semibold text-primary-600 hover:text-primary-500">
             Sign up now
           </Link>
         </p>
