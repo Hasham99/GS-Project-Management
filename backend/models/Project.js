@@ -18,6 +18,11 @@ const projectSchema = new mongoose.Schema(
     startDate: { type: Date },
     endDate: { type: Date },
     isDeleted: { type: Boolean, default: false },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
   },
   { timestamps: true }
 );

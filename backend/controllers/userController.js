@@ -59,6 +59,7 @@ export const registerUser = asyncHandler(async (req, res) => {
       email: user.email,
       globalRole: user.globalRole,
       avatar: user.avatar,
+      tenantId: user.tenantId,
     });
   } else {
     res.status(400);
@@ -78,21 +79,26 @@ export const registerAdmin = asyncHandler(async (req, res) => {
     res.status(400); throw new Error('User already exists');
   }
 
-  const user = await User.create({
+  const user = new User({
     name,
     email,
     password,
     globalRole: 'Admin', // Force Admin role
   });
+  
+  // For an Admin, their tenantId is their own ID
+  user.tenantId = user._id;
+  const savedUser = await user.save();
 
-  if (user) {
-    generateToken(res, user._id);
+  if (savedUser) {
+    generateToken(res, savedUser._id);
     res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      globalRole: user.globalRole,
-      avatar: user.avatar,
+      _id: savedUser._id,
+      name: savedUser.name,
+      email: savedUser.email,
+      globalRole: savedUser.globalRole,
+      avatar: savedUser.avatar,
+      tenantId: savedUser.tenantId,
     });
   } else {
     res.status(400); throw new Error('Invalid user data');
@@ -122,6 +128,7 @@ export const inviteUser = asyncHandler(async (req, res) => {
     email,
     password: 'Welcome123!',
     globalRole: globalRole || 'User',
+    tenantId: req.user.tenantId || req.user._id, // Inherit tenantId
   });
 
   if (user) {
@@ -163,6 +170,7 @@ export const getUserProfile = asyncHandler(async (req, res) => {
       email: user.email,
       globalRole: user.globalRole,
       avatar: user.avatar,
+      tenantId: user.tenantId,
     });
   } else {
     res.status(404);
@@ -183,6 +191,10 @@ export const getUsers = asyncHandler(async (req, res) => {
         },
       }
     : {};
+
+  if (req.user.globalRole !== 'Super Admin') {
+    keyword.tenantId = req.user.tenantId || req.user._id;
+  }
 
   const users = await User.find({ ...keyword }).select('-password');
   res.json(users);

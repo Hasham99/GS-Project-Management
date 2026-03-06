@@ -17,6 +17,10 @@ const userSchema = new mongoose.Schema(
       default: 'Active',
     },
     avatar: { type: String, default: '' },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
   },
   { timestamps: true }
 );

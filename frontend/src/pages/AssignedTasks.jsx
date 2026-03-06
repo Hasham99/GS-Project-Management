@@ -4,7 +4,7 @@ import api from '../services/api';
 import { CheckCircle2, Circle, Clock, BarChart2, Folder, Edit2, Trash2, X } from 'lucide-react';
 import useAuthStore from '../store/useAuthStore';
 import { Navigate } from 'react-router-dom';
-import { useQuill } from 'react-quilljs';
+import { useQuill } from '../hooks/useQuill';
 import 'quill/dist/quill.snow.css';
 
 const AssignedTasks = () => {

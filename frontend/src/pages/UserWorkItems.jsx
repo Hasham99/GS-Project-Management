@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import useAuthStore from '../store/useAuthStore';
 import { CheckCircle2, Circle, Folder, BarChart2, Edit2, Trash2, X } from 'lucide-react';
-import { useQuill } from 'react-quilljs';
+import { useQuill } from '../hooks/useQuill';
 import 'quill/dist/quill.snow.css';
 
 const UserWorkItems = () => {

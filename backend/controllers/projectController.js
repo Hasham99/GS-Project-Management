@@ -10,13 +10,28 @@ export const createProject = asyncHandler(async (req, res) => {
     res.status(403); throw new Error('Not authorized to create projects');
   }
   const { name, description, priority, startDate, endDate } = req.body;
-  const project = new Project({ name, description, priority, startDate, endDate, createdBy: req.user._id });
+  const tenantId = req.user.tenantId || req.user._id;
+  const project = new Project({ name, description, priority, startDate, endDate, createdBy: req.user._id, tenantId });
   const createdProject = await project.save();
   await ProjectMember.create({ projectId: createdProject._id, userId: req.user._id, roleInProject: 'Manager' });
   res.status(201).json(createdProject);
 });
 
 export const getMyProjects = asyncHandler(async (req, res) => {
+  if (req.user.globalRole === 'Super Admin') {
+    const projects = await Project.find({ isDeleted: false })
+      .populate('createdBy', 'name email avatar').sort({ createdAt: -1 });
+    const projectsWithRoles = projects.map(p => ({ ...p.toObject(), myRole: 'Super Admin' }));
+    return res.json(projectsWithRoles);
+  }
+
+  if (req.user.globalRole === 'Admin') {
+    const projects = await Project.find({ tenantId: req.user._id, isDeleted: false })
+      .populate('createdBy', 'name email avatar').sort({ createdAt: -1 });
+    const projectsWithRoles = projects.map(p => ({ ...p.toObject(), myRole: 'Admin' }));
+    return res.json(projectsWithRoles);
+  }
+
   const memberships = await ProjectMember.find({ userId: req.user._id }).select('projectId roleInProject');
   const projectIds = memberships.map((m) => m.projectId);
   const projects = await Project.find({ _id: { $in: projectIds }, isDeleted: false })
@@ -32,9 +47,17 @@ export const getProjectById = asyncHandler(async (req, res) => {
   const project = await Project.findOne({ _id: req.params.id, isDeleted: false })
     .populate('createdBy', 'name email avatar');
   if (project) {
+    if (req.user.globalRole === 'Super Admin') {
+      return res.json({ ...project.toObject(), myRole: 'Super Admin' });
+    }
+    
+    if (req.user.globalRole === 'Admin' && project.tenantId.toString() === req.user._id.toString()) {
+      return res.json({ ...project.toObject(), myRole: 'Admin' });
+    }
+
     const membership = await ProjectMember.findOne({ projectId: project._id, userId: req.user._id });
-    if (membership || req.user.globalRole === 'Admin') {
-      res.json({ ...project.toObject(), myRole: membership ? membership.roleInProject : 'Admin' });
+    if (membership) {
+      res.json({ ...project.toObject(), myRole: membership.roleInProject });
     } else {
       res.status(403); throw new Error('Not authorized to access this project');
     }
@@ -52,7 +75,11 @@ export const updateProject = asyncHandler(async (req, res) => {
 
   if (project) {
     const membership = await ProjectMember.findOne({ projectId: project._id, userId: req.user._id });
-    if ((membership && membership.roleInProject === 'Manager') || req.user.globalRole === 'Admin') {
+    const isSuperAdmin = req.user.globalRole === 'Super Admin';
+    const isAdmin = req.user.globalRole === 'Admin' && project.tenantId.toString() === req.user._id.toString();
+    const isManager = membership && membership.roleInProject === 'Manager';
+
+    if (isSuperAdmin || isAdmin || isManager) {
       project.name = name || project.name;
       project.description = description || project.description;
       project.priority = priority || project.priority;
@@ -78,7 +105,11 @@ export const deleteProject = asyncHandler(async (req, res) => {
 
   if (project) {
     const membership = await ProjectMember.findOne({ projectId: project._id, userId: req.user._id });
-    if ((membership && membership.roleInProject === 'Manager') || req.user.globalRole === 'Admin') {
+    const isSuperAdmin = req.user.globalRole === 'Super Admin';
+    const isAdmin = req.user.globalRole === 'Admin' && project.tenantId.toString() === req.user._id.toString();
+    const isManager = membership && membership.roleInProject === 'Manager';
+
+    if (isSuperAdmin || isAdmin || isManager) {
       project.isDeleted = true;
       await project.save();
       res.json({ message: 'Project removed' });
@@ -99,7 +130,11 @@ export const addMember = asyncHandler(async (req, res) => {
   
   if (project) {
     const mgrCheck = await ProjectMember.findOne({ projectId: project._id, userId: req.user._id });
-    if ((mgrCheck && mgrCheck.roleInProject === 'Manager') || req.user.globalRole === 'Admin') {
+    const isSuperAdmin = req.user.globalRole === 'Super Admin';
+    const isAdmin = req.user.globalRole === 'Admin' && project.tenantId.toString() === req.user._id.toString();
+    const isManager = mgrCheck && mgrCheck.roleInProject === 'Manager';
+
+    if (isSuperAdmin || isAdmin || isManager) {
       const alreadyMember = await ProjectMember.findOne({ projectId: project._id, userId });
       if (alreadyMember) {
         res.status(400); throw new Error('User is already a member');
@@ -127,9 +162,17 @@ export const getMembers = asyncHandler(async (req, res) => {
 // @access  Private (Manager/Admin)
 export const getProjectAnalytics = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
+  const project = await Project.findById(projectId);
   
+  if (!project) {
+    res.status(404); throw new Error('Project not found');
+  }
+
   const hasAccess = await ProjectMember.findOne({ projectId, userId: req.user._id });
-  if (!hasAccess && req.user.globalRole !== 'Admin' && req.user.globalRole !== 'Super Admin') {
+  const isSuperAdmin = req.user.globalRole === 'Super Admin';
+  const isAdmin = req.user.globalRole === 'Admin' && project.tenantId.toString() === req.user._id.toString();
+
+  if (!isSuperAdmin && !isAdmin && !hasAccess) {
     res.status(403); throw new Error('Not authorized to view analytics');
   }
 

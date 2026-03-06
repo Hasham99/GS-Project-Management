@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { Plus, UserPlus, BarChart2, Edit2, Trash2, X } from 'lucide-react';
-import { useQuill } from 'react-quilljs';
+import { useQuill } from '../hooks/useQuill';
 import 'quill/dist/quill.snow.css';
 import useAuthStore from '../store/useAuthStore';
 
@@ -11,6 +11,7 @@ const ProjectDetail = () => {
   const { user } = useAuthStore();
   const { id: projectId } = useParams();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
@@ -180,6 +181,22 @@ const ProjectDetail = () => {
     }
   });
 
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      return await api.delete(`/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-projects'] });
+      navigate('/projects');
+    }
+  });
+
+  const handleDeleteProject = () => {
+    if (window.confirm('Are you sure you want to delete this project? All associated tasks will be lost.')) {
+      deleteProjectMutation.mutate();
+    }
+  };
+
   const openTaskDetail = (item) => {
     setSelectedItem(item);
     setEditTitle(item.title);
@@ -248,6 +265,15 @@ const ProjectDetail = () => {
           <Link to={`/projects/${projectId}/releases`} className="btn-secondary flex items-center space-x-2">
             <span>View Releases</span>
           </Link>
+          {(project?.myRole === 'Manager' || user?.globalRole === 'Admin' || user?.globalRole === 'Super Admin') && (
+            <button 
+              onClick={handleDeleteProject} 
+              className="btn-secondary flex items-center space-x-2 text-red-600 border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300"
+            >
+              <Trash2 size={18} />
+              <span>Delete Project</span>
+            </button>
+          )}
           <button onClick={() => setShowTaskModal(true)} className="btn-primary flex items-center space-x-2">
             <Plus size={18} />
             <span>Add Task</span>
@@ -257,7 +283,7 @@ const ProjectDetail = () => {
 
       <div className="flex-1 overflow-x-auto flex space-x-6 pb-4">
         {columns.map(col => (
-          <div key={col} className="w-80 flex-shrink-0 flex flex-col bg-surface-100/50 rounded-xl rounded-t-xl overflow-hidden">
+          <div key={col} className="w-80 shrink-0 flex flex-col bg-surface-100/50 rounded-xl rounded-t-xl overflow-hidden">
             <div className="p-4 bg-surface-200/50 border-b border-surface-200">
               <h3 className="font-semibold text-surface-800 flex items-center justify-between">
                 {col}
@@ -287,7 +313,7 @@ const ProjectDetail = () => {
                   <div className="w-[60%] truncate font-semibold text-surface-800 text-sm mb-1">{item.title}</div>
                   {!item.assignToAll && item.assigneeId && (
                     <div className="text-[10px] text-primary-600 bg-primary-50 inline-flex items-center space-x-1 px-1.5 py-0.5 rounded mb-1">
-                      <span>👤</span><span className="truncate max-w-[100px]">{item.assigneeId.name}</span>
+                      <span>👤</span><span className="truncate max-w-25">{item.assigneeId.name}</span>
                     </div>
                   )}
                   <p className="w-[60%] truncate text-xs text-surface-500 mb-3">{stripHtml(item.description)}</p>

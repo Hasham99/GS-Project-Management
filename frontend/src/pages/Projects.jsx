@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import useAuthStore from '../store/useAuthStore';
 import { Link } from 'react-router-dom';
-import { Plus, Folder, Calendar } from 'lucide-react';
+import { Plus, Folder, Calendar, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Projects = () => {
@@ -32,6 +32,23 @@ const Projects = () => {
       setDescription('');
     }
   });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId) => {
+      return await api.delete(`/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-projects'] });
+    }
+  });
+
+  const handleDelete = (e, projectId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this project? All associated tasks will be lost.')) {
+      deleteProjectMutation.mutate(projectId);
+    }
+  };
 
   const handleCreate = (e) => {
     e.preventDefault();
@@ -77,9 +94,20 @@ const Projects = () => {
                   <Calendar size={14} />
                   <span>{format(new Date(project.createdAt), 'MMM d, yyyy')}</span>
                 </div>
-                <Link to={`/projects/${project._id}`} className="text-primary-600 text-sm font-medium hover:text-primary-800">
-                  View Board →
-                </Link>
+                <div className="flex items-center space-x-3">
+                  {(project.myRole === 'Manager' || user?.globalRole === 'Admin' || user?.globalRole === 'Super Admin') && (
+                    <button 
+                      onClick={(e) => handleDelete(e, project._id)}
+                      className="text-surface-400 hover:text-red-600 transition-colors p-1"
+                      title="Delete Project"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                  <Link to={`/projects/${project._id}`} className="text-primary-600 text-sm font-medium hover:text-primary-800">
+                    View Board →
+                  </Link>
+                </div>
               </div>
             </div>
           ))}
